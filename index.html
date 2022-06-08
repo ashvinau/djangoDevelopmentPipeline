@@ -76,7 +76,7 @@
         <header><h1>Setting up a Django Development Pipeline with Ansible</h1></header>
         <main>
             <h2>Getting Started</h2>
-            <p>Django is a powerful web framework that uses Python and HTML/CSS to allow rapid development of web applications. Django relies on many other technologies in order to function. As a result, the software stack needed to serve a Django web application can be complex and difficult to install or configure. This project aims to automate this process using a system management tool called <a href="https://www.ansible.com/">Ansible</a>. Ansible can perform all of the needed steps to configure a Django instance by following a setup <em>playbook</em>. In addition there is a deployment <em>playbook</em> which can be used to upload a project to your instance, as well as a Github Actions workflow that can update the site when new files are pushed to your repository.</p>
+            <p>Django is a powerful web framework that uses Python and HTML/CSS to allow rapid development of web applications. Django relies on many other technologies in order to function. As a result, the software stack needed to serve a Django web application can be complex and difficult to install or configure. This <a href="https://github.com/ashvinau/djangoDevelopmentPipeline">Continuous Deployment Pipeline</a> aims to automate this process using a system management tool called <a href="https://www.ansible.com/">Ansible</a>. Ansible can perform all of the needed steps to configure a Django instance by following a setup <em>playbook</em>. In addition there is a deployment <em>playbook</em> which can be used to upload a project to your instance, as well as a Github Actions workflow that can update the site when new files are pushed to your repository.</p>
             <p>You will need access to an instance through a cloud or hosting provider (such as AWS). This stack is designed to work with Ubuntu 20.04, but it should work with any distribution that uses the <em>apt</em> package manager. You will need the following information regarding your instance:</p>
             <ul>
                 <li>The instance's IP address or domain name</li>
@@ -99,6 +99,10 @@
                 <li>templates/vsftpd.conf</li>
                 <li>templates/vsftpd.userlist</li>
             </ul>
+
+            <p>You can retrieve these files from the repository with the following command:<p>
+            <pre># git clone https://github.com/ashvinau/djangoDevelopmentPipeline.git</pre>
+
             <p>You Will need the following software installed on your computer:</p>
             <ul>
                 <li>Python 3</li>
@@ -149,6 +153,10 @@ DEPLOY_REPO: False</pre>
             <pre># ansible-playbook -i inventory djangoserver.yml</pre>
 
             <p>Ansible will connect to the machine specified in the inventory, and perform the steps described in the <b>djangoserver.yml</b> playbook. This file contains documentation on the function of each step. If all goes well, your console should display a setup process that is occurring on the remote instance one step at a time. A few steps may take several minutes to complete. Once the configuration is complete the instance will reboot and your Django stack will be ready for project deployment. You can test this installation by visiting the IP or domain of your instance in a web browser. You should see the default Django launch page with the rocket ship image.</p>
+
+            <p>During the setup process, the developer user will have their SSH keys generated on the instance, and then retrieved to the <b>./keys</b> directory. In order to SSH in with the developer user to access the project files use this command:
+
+            <pre># ssh -i keys/<b>dev user</b>.pem <b>dev user</b>@<b>IP or domain</b></pre>
 
             <h2>Deploying Your Django Project</h2>
 
