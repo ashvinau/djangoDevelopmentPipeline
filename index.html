@@ -157,13 +157,14 @@ DEPLOY_REPO: False</pre>
             <p>During the setup process, the developer user will have their SSH keys generated on the instance, and then retrieved to the <b>./keys</b> directory. In order to SSH in with the developer user to access the project files use this command:
 
             <pre># ssh -i keys/<b>dev user</b>.pem <b>dev user</b>@<b>IP or domain</b></pre>
+            <p>Secure FTP access to the project files is also provided on port 22, which can be accessed with the developer user and password set in <b>variables.yml</b>.
 
             <h2>Deploying Your Django Project</h2>
 
             <p>Once the setup of the stack has been completed you can proceed to deploy your project files to the instance. This will make your project available to the internet. This pipeline supports two ways of doing this; project files in a local directory or project files in a Github repo. The last two entries of <b>variables.yml</b> determine how the deployment is performed. Set DEPLOY_LOCAL to a path containing your project, or set DEPLOY_REPO to a URL of a Git repository containing the project files.</p>
 
             <pre>DEPLOY_LOCAL: <b>path to local project files</b>
-DEPLOY_REPO: <b>path to Github repository</b></pre>
+DEPLOY_REPO: <b>URL for Github repository</b></pre>
 
             <p>Once one of these has been set, issue Ansible the command to deploy your files:</p>
 
@@ -198,7 +199,7 @@ DEPLOY_REPO: <b>path to Github repository</b></pre>
                 <li>github_inventory</li>
             </ul>
 
-            <p>With this configuration in place, any new code committed to the main branch of the repository will be automatically deployed to the instance specified in the <b>DJANGO_DOMAIN</b> secret.</p> Contributors do not need to have Ansible installed locally.
+            <p>With this configuration in place, any new code committed to the main branch of the repository will be automatically deployed to the instance specified in the <b>DJANGO_DOMAIN</b> secret. Contributors do not need to have Ansible installed locally.</p>
 
             <h2>Wrap Up and Notes</h2>
             <p>With all of the components set up, these scripts form a pipeline that allows developers to see their code go from their desktop IDE to running live on a web server every time they push new code to the main branch of the project repository. In addition, a developer could use it to create a development instance that is separate from the production server. This could be used to test new features or resolve bugs with no risk the live web site.</p>
@@ -209,7 +210,9 @@ DEPLOY_REPO: <b>path to Github repository</b></pre>
                 <p>You will be unable to log into the Django admin panel immediately after installation, as no password is set. You can set one by connecting to the instance via SSH with the dev user and setting it manually with the following commands:</p>
                 <pre># cd /projects/<b>project name</b>_dir
 # source <b>project name</b>_env/bin/activate
-# ./manage.py changepassword <b>Django superuser password</b></pre>
+# ./manage.py changepassword <b>Django superuser password</b></pre></li>
+                <li>Updates to the instance do not remove files to reflect the state of the repository</li>
+                <p>Currently the git clone operation copies the files to a temporary directory on the instance before overwriting the project files in the project directory. The right way to do this is to initialize git on the instance and pull the changes from the repository, but this is much more complex.</p>
             </ul>
         </main>
     </div>
