@@ -1,0 +1,211 @@
+---
+- name: Django Server Provisioning Playbook # Installs a Django web app stack and creates a blank project
+  hosts: all # Run on all hosts in the inventory file
+  become: true # Automatically change user or become superuser
+  vars_files:
+    - variables.yml # Contains the settings and options for this playlist
+
+  tasks:
+
+  - name: Create {{ ADMIN_USER }} admin user # Creates a user for the web developer to log in
+    user: # Manages system operations to do with users and groups
+        name: "{{ ADMIN_USER }}" # The user's name
+        password: "{{ ADMIN_PASSWORD | password_hash('sha512') }}" # A hash of the password
+        group: "www-data" # Needed to work with nginx
+        generate_ssh_key: yes # Create a key on the remote system
+        ssh_key_bits: 2048 # High complexity
+        ssh_key_file: ".ssh/id_rsa" # File location
+        shell: /bin/bash # The shell to use for creating this user
+        state: present # Add the user if it does not exist
+
+  - name: Retrieve {{ ADMIN_USER }}'s private key # Gets the ssh key created in the previous step
+    fetch: # Retrieves a file from the remote system
+        src: "/home/{{ ADMIN_USER }}/.ssh/id_rsa" # The location of the file to retrieve
+        dest: "./keys/{{ ADMIN_USER }}.pem" # The path and filename to store it locally
+        flat: yes # Only store files locally and do not create directory
+
+  - name: Retrieve {{ ADMIN_USER }}'s public key # Same as above but for the public key
+    fetch:
+        src: "/home/{{ ADMIN_USER }}/.ssh/id_rsa.pub"
+        dest: "./keys/{{ ADMIN_USER }}.pub"
+        flat: yes
+
+  - name: Set authorized keys for {{ ADMIN_USER }} # Adds the public key to the admin user's authorized keys
+    authorized_key: # Used to add or delete authorized keys
+        user: "{{ ADMIN_USER }}" # The admin user
+        state: present # Add this key if it is not already present
+        key: "{{ lookup('file', './keys/{{ ADMIN_USER }}.pub') }}" # retrieves the key from the public key file
+
+  - name: Update repositories and upgrade OS/ packages # Both the update and upgrade operations are performed
+    apt: # Used for installing, uninstalling and updating packages on apt-based systems (like ubuntu)
+        update_cache: true # Retrieve an updated list of available packages
+        upgrade: dist # Install any updated packages
+
+  - name: Install required packages # Installs the apps for the stack except those installed with pip
+    apt:
+        name: # The names of the packages
+            - python3-pip # Pip python package manager
+            - python3-dev # Needed to use the postgres2 library
+            - python3-psycopg2 # Connects python to postgres
+            - libpq-dev # Needed to use postgres2 library
+            - postgresql # Postgresql relational database
+            - postgresql-contrib # Needed to communicate with python
+            - nginx # Multi-threaded web server
+            - curl # Command-line tool used to download files
+            - acl # Used to create a restricted FTP root
+            - vsftpd # Secure File Transfer Protocol Server
+        state: latest # Make sure all of these packages are installed at their latest version
+
+  - name: Create ftp server configuration from template # Configuration created from information in variables.yml
+    template: # Used to generate configuration files from a template with variable names in it
+        src: vsftpd.conf # The template in the local 'templates' directory
+        dest: /etc/vsftpd.conf # The resulting path and file on the remote system
+
+  - name: Create ftp server userlist from template # FTP user must be specified here because password login is disabled for the admin user
+    template:
+        src: vsftpd.userlist
+        dest: /etc/vsftpd.userlist
+
+  - name: Start postgresql service # Makes sure postgres is running
+    service: # Used to manage, start, and stop system services
+        name: postgresql # Name of the service
+        state: started # Start the service if it is not running
+        enabled: yes # Ensure the service is set to start with the instance
+
+  - name: Create the {{ PROJECT_NAME }} project database # Creates a database for Django to use postgres
+    become: true # Needed to override the global 'become'
+    become_user: postgres # No authentication needed with db operations as the postgres user
+    postgresql_db: # Used to create and manage postgresql databases
+        name: "{{ PROJECT_NAME }}" # The name of the project and resulting table
+        state: present # Create the database if it does not already exist
+
+  - name: Create the Django database user and grant permissions # Created a user for Django to access the project database
+    become: true
+    become_user: postgres
+    postgresql_user: # Used to create and manage postgresql users
+        db: "{{ PROJECT_NAME }}" # The project database
+        name: "{{ ADMIN_USER }}" # The admin user
+        password: "{{ ADMIN_PASSWORD }}" # The admin password
+        priv: ALL # Grant all priveleges for this user
+        state: present # Create this user if it does not already exist
+
+  - name: Install virtualenv with Pip # Python tool that will be used to create Django's environment
+    pip: # Used to install, uninstall, and manage python programs
+        name: virtualenv # Virtualenv creates an isolated python development environment
+
+  - name: Create python virtual environment and install Django and gunicorn # Installs the rest of the stack's software into the project's virtual environment
+    remote_user: "{{ ADMIN_USER }}" # Run this as the admin user so the created files have the correct permissions
+    pip:
+        name:
+            - django # Full-featured web application framework
+            - gunicorn # WSGI HTTP Server
+            - psycopg2-binary # Connects python to postgresql
+        virtualenv: "/home/{{ ADMIN_USER }}/projects/{{ PROJECT_NAME }}_dir/{{ PROJECT_NAME }}_env" # Creates the virtual environment if it does not already exist
+
+  - name: Switch to virtual environment and create blank project # Uses the shell to 'activate' the virtualenv
+    remote_user: "{{ ADMIN_USER }}" # The dev user is who is going to be interacting with the virtualenv
+    shell: |
+        source /home/{{ ADMIN_USER }}/projects/{{ PROJECT_NAME }}_dir/{{ PROJECT_NAME }}_env/bin/activate
+        django-admin startproject {{ PROJECT_NAME }} /home/{{ ADMIN_USER }}/projects/{{ PROJECT_NAME }}_dir
+    ignore_errors: yes # Because this is done with the shell it will cause an error if the project already exists
+    args: # Allows you to set options for the shell module
+        executable: /bin/bash # Specify the bash shell because 'source' is a feature of bash
+
+  - name: Generate settings.py for project {{ PROJECT_NAME }} # Configure the project for the installed stack
+    template:
+        src: settings.py # Contains references to variables.yml
+        dest: "/home/{{ ADMIN_USER }}/projects/{{ PROJECT_NAME }}_dir/{{ PROJECT_NAME }}/settings.py"
+        owner: "{{ ADMIN_USER }}" # Permissions must match dev user
+        group: "www-data" # Group needed to communicate with nginx
+
+  - name: Migrate the schema to the database # Represents the blank project in Django's database
+    remote_user: "{{ ADMIN_USER }}"
+    django_manage: # Used to remotely interact with manage.py/ django-admin
+        command: migrate # Creates database tables for the project to store data
+        app_path: "/home/{{ ADMIN_USER }}/projects/{{ PROJECT_NAME }}_dir" # The directory containing the project
+        virtualenv: "/home/{{ ADMIN_USER }}/projects/{{ PROJECT_NAME }}_dir/{{ PROJECT_NAME }}_env" # The virtualenv of the project
+
+  - name: Create Django superuser # The user to log into Django's admin panel. The password must be set manually via ssh using: python manage.py changepassword <ADMIN_USER>
+    remote_user: "{{ ADMIN_USER }}"
+    django_manage:
+        command: "createsuperuser --noinput --username={{ ADMIN_USER }} --email={{ SUPERUSER_EMAIL }}"
+        app_path: "/home/{{ ADMIN_USER }}/projects/{{ PROJECT_NAME }}_dir"
+        virtualenv: "/home/{{ ADMIN_USER }}/projects/{{ PROJECT_NAME }}_dir/{{ PROJECT_NAME }}_env"
+    ignore_errors: yes # Ignores the error caused if the django superuser already exists
+
+  - name: Collect Django static files # Gathers the static files for the admin panel
+    remote_user: "{{ ADMIN_USER }}"
+    django_manage:
+        command: collectstatic # Creates copies of all static files from apps in the static directory
+        app_path: "/home/{{ ADMIN_USER }}/projects/{{ PROJECT_NAME }}_dir"
+        virtualenv: "/home/{{ ADMIN_USER }}/projects/{{ PROJECT_NAME }}_dir/{{ PROJECT_NAME }}_env"
+
+  - name: Update ownership of project files # Ensures all project files have the correct owner and group
+    file: # Used to perform file operations on the remote system
+        path: "/home/{{ ADMIN_USER }}/projects/" # The directory that contains the project folder
+        state: directory # Perform this operation if the path is a directory
+        recurse: yes # Apply to all subdirectories and files contained in them
+        owner: "{{ ADMIN_USER }}" # The dev user
+        group: "www-data" # The group for nginx files and processes
+
+  - name: Update permissions of ftp chroot directory # Creates a safe FTP directory where the user cannot navigate up and see the instance's system files
+    file:
+        path: "/home/{{ ADMIN_USER }}/projects/" # The directory that contains the project folder
+        state: directory # Perform this operation if the path is a directory
+        owner: nobody # FTP Chroot folder should have no permissions so only superusers can modify it
+        group: nogroup
+        mode: a-w # Removes all writing priveleges from all groups
+
+  - name: Copy gunicorn socket unit file # Creates a socket file at boot that nginx uses to listen for connections
+    copy: # Copies a local file to the remote system
+        src: ./config/gunicorn.socket
+        dest: /etc/systemd/system/gunicorn.socket
+        owner: root # All system service files are owned by root
+        group: root
+
+  - name: Create gunicorn service unit file from template # When there is a connection, gunicorn is started automatically to serve the project
+    template:
+        src: gunicorn.service # Unit file that points to the project files and dev user
+        dest: /etc/systemd/system/gunicorn.service
+        owner: root
+        group: root
+
+  - name: Start and enable gunicorn socket and service # Enable the socket to listen for connections
+    systemd: # Used to manage system services defined with a unit file
+        name: gunicorn.socket
+        state: started # Starts the service if it isnt running
+        enabled: yes # Set it to start with the instance
+
+  - name: Remove Nginx default configuration from sites-enabled # Remove the default nginx page
+    file:
+        name: /etc/nginx/sites-enabled/default
+        state: absent # Removes the file if it exists
+
+  - name: Create Nginx proxy configuration from template # Generates nginx config from template
+    template:
+        src: nginx-sites-enabled # Points nginx to the gunicorn socket file
+        dest: /etc/nginx/sites-available/{{ PROJECT_NAME }}
+        owner: www-data # nginx's user/group
+        group: www-data
+
+  - name: Create link to enable project site proxy # Enables the site by creating a link in sites-enabled
+    file:
+        src: /etc/nginx/sites-available/{{ PROJECT_NAME }}
+        dest: /etc/nginx/sites-enabled/{{ PROJECT_NAME }}
+        owner: www-data
+        group: www-data
+        state: link # Create a link if one does not exist
+
+  - name: Restart Nginx # To load the new configuration
+    service:
+        name: nginx
+        state: restarted # Restarts a service if it is running
+
+  - name: Restart ftp server # To use the secure chroot
+    service:
+        name: vsftpd
+        state: restarted
+
+  - name: Configuration complete; restarting instance
+    reboot: # Does exactly what it says on the tin
+        msg: System rebooting for initial configuration!

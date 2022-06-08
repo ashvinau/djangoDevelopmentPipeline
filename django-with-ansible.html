@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Setting up a Django Development Pipeline with Ansible</title>
+    <style>
+        * {
+            padding: 0;
+            margin: 0;
+        }
+
+        body {
+            background: black;
+            font-family: Verdana, Geneva, sans-serif;
+            color: white;
+        }
+
+        div#wrapper {
+            width: 940px;
+
+            margin: 0 auto 0 auto;
+        }
+
+        header {
+            height: 100px;
+            line-height: 100px;
+            padding: 10px;
+        }
+
+        main {
+            background: #1e2131;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #2d3148;
+            padding: 10px;
+        }
+
+        main a {
+            color: white;
+        }
+
+        pre {
+            background: #333852;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #515981;
+            padding: 10px;
+            margin: 20px;
+        }
+
+        b {
+            background: #515981;
+            padding: 0 5px 0 5px;
+        }
+
+        ul, ol {
+            line-height:1.5;
+            margin: 10px 30px 10px 50px;
+        }
+
+        h2 {
+            margin: 15px;
+            border-left: 6px white solid;
+            padding-left: 8px;
+        }
+
+        p {
+            line-height:1.5;
+            margin-bottom:5px;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="wrapper">
+        <header><h1>Setting up a Django Development Pipeline with Ansible</h1></header>
+        <main>
+            <h2>Getting Started</h2>
+            <p>Django is a powerful web framework that uses Python and HTML/CSS to allow rapid development of web applications. Django relies on many other technologies in order to function. As a result, the software stack needed to serve a Django web application can be complex and difficult to install or configure. This project aims to automate this process using a system management tool called <a href="https://www.ansible.com/">Ansible</a>. Ansible can perform all of the needed steps to configure a Django instance by following a setup <em>playbook</em>. In addition there is a deployment <em>playbook</em> which can be used to upload a project to your instance, as well as a Github Actions workflow that can update the site when new files are pushed to your repository.</p>
+            <p>You will need access to an instance through a cloud or hosting provider (such as AWS). This stack is designed to work with Ubuntu 20.04, but it should work with any distribution that uses the <em>apt</em> package manager. You will need the following information regarding your instance:</p>
+            <ul>
+                <li>The instance's IP address or domain name</li>
+                <li>The SSH private key</li>
+                <li>Access to ports 21, 22 and 80</li>
+            </ul>
+            <p>To get started, you'll want to download the files from this repository into a new folder. Below are the files that are needed:</p>
+            <ul>
+                <li>djangomain.yml</li>
+                <li>djangoserver.yml</li>
+                <li>deployproject.yml</li>
+                <li>ansible-deploy.yml</li>
+                <li>variables.yml</li>
+                <li>inventory</li>
+                <li>github-inventory</li>
+                <li>config/gunicorn</li>
+                <li>templates/gunicorn.service</li>
+                <li>templates/nginx-sites-enabled</li>
+                <li>templates/settings.py</li>
+                <li>templates/vsftpd.conf</li>
+                <li>templates/vsftpd.userlist</li>
+            </ul>
+            <p>You Will need the following software installed on your computer:</p>
+            <ul>
+                <li>Python 3</li>
+                <li>Pip</li>
+                <li>Ansible</li>
+            </ul>
+            <p>You can install Ansible at a command prompt using Pip with the following command:</p>
+            <pre># python3 -m pip install --user ansible</pre>
+            <p>Test your installation by running the command below:</p>
+            <pre># ansible --version</pre>
+            <p>Which should produce output similar to:</p>
+            <pre>ansible [core 2.13.0]
+  config file = /etc/ansible/ansible.cfg
+  configured module search path = ['/home/user/.ansible/plugins/modules', '/usr/share/ansible/plugins/modules']
+  ansible python module location = /usr/lib/python3.10/site-packages/ansible
+  ansible collection location = /home/user/.ansible/collections:/usr/share/ansible/collections
+  executable location = /usr/bin/ansible
+  python version = 3.10.4 (main, Mar 23 2022, 23:05:40) [GCC 11.2.0]
+  jinja version = 3.0.3
+  libyaml = True</pre>
+            <h2>Installing the Django Software Stack</h2>
+            <p>In order to install Django using this setup playbook you will need to do a bit of configuration. First up will be the <em>inventory</em>. This tells ansible some basic information about your instance. The file called <b>inventory</b> will contain the following configuration. Open this file in a text editor and fill in any parts that are highlighted. In this case you'll need your instance's IP or domain name, and the SSH key for the ubuntu user to log in.</p>
+
+            <pre>django_server ansible_host=<b>instance IP or domain</b> ansible_user=ubuntu ansible_ssh_private_key_file="<b>SSH private key</b>"</pre>
+
+            <p>Next up are the configuration variables, located in the file <b>variables.yml</b> You will need the following information for stack setup:</p>
+            <ul>
+                <li>The IP or domain of the instance</li>
+                <li>Make a username for developer SSH/FTP login, as well as the Django superuser</li>
+                <li>Make a secure password for this dev user</li>
+                <li>The name of your Django project</li>
+                <li>A contact email for creating the Django superuser</li>
+                <li>The "SECRET_KEY" from Django's settings.py which can be copied from your local installation</li>
+            </ul>
+
+            <p>Using this information, open <b>variables.yml</b> in a text editor, and replace the highlighted parts with the appropriate information:</p>
+
+            <pre>DOMAIN_NAME: <b>instance IP or domain</b>
+ADMIN_USER: <b>developer user</b>
+ADMIN_PASSWORD: <b>dev user password</b>
+PROJECT_NAME: <b>Django project name</b>
+SUPERUSER_EMAIL: <b>Django superuser email</b>
+DJANGO_SECRET_KEY: <b>Django secret key</b>
+DEPLOY_LOCAL: False
+DEPLOY_REPO: False</pre>
+
+            <p>With this configuration is complete. At a command prompt, change to the directory containing <b>djangoserver.yml</b> and issue Ansible the command to spin up your instance:</p>
+            <pre># ansible-playbook -i inventory djangoserver.yml</pre>
+
+            <p>Ansible will connect to the machine specified in the inventory, and perform the steps described in the <b>djangoserver.yml</b> playbook. This file contains documentation on the function of each step. If all goes well, your console should display a setup process that is occurring on the remote instance one step at a time. A few steps may take several minutes to complete. Once the configuration is complete the instance will reboot and your Django stack will be ready for project deployment. You can test this installation by visiting the IP or domain of your instance in a web browser. You should see the default Django launch page with the rocket ship image.</p>
+
+            <h2>Deploying Your Django Project</h2>
+
+            <p>Once the setup of the stack has been completed you can proceed to deploy your project files to the instance. This will make your project available to the internet. This pipeline supports two ways of doing this; project files in a local directory or project files in a Github repo. The last two entries of <b>variables.yml</b> determine how the deployment is performed. Set DEPLOY_LOCAL to a path containing your project, or set DEPLOY_REPO to a URL of a Git repository containing the project files.</p>
+
+            <pre>DEPLOY_LOCAL: <b>path to local project files</b>
+DEPLOY_REPO: <b>path to Github repository</b></pre>
+
+            <p>Once one of these has been set, issue Ansible the command to deploy your files:</p>
+
+            <pre># ansible-playbook -i inventory deployproject.yml</pre>
+
+            <p>The project files will be updated on the instance, updates will be made to the database and static files, and gunicorn will be restarted, making the the site available and completing the deployment.</p>
+
+            <h2>Automating Code Deployment Using Github Actions</h2>
+
+            <p>Once the Django project has been deployed, updates to the instance can be performed by running the <b>deployproject.yml</b> playbook again. However, it is more convenient for this to occur automatically whenever there is new code pushed to the Github repository. Github Actions gives us a way to accomplish this by running Ansible with the deployment playbook on a virtual machine supplied by Github, called a <em>runner</em>. After each operation this VM is destroyed so no sensitive data is exposed.</p>
+
+            <p>In order to give our <em>runner</em> VM the IP or domain and the SSH key for our instance, we will use Github secrets. From the repository's home page:</p>
+
+            <ol>
+                <li>Click on the <b>Settings</b> tab at the top right</li>
+                <li>In the menu on the left side, click on <b>Secrets</b></li>
+                <li>In the list that drops down, select <b>Actions</b></li>
+                <li>In the upper right corner of the page click on <b>New Repository Secret</b></li>
+                <li>For the <em>Name</em> enter <b>DJANGO_DOMAIN</b></li>
+                <li>For the <em>Value</em> enter your instance's IP or domain name</li>
+                <li>Click <b>Add secret</b></li>
+                <li>Create another secret by clicking <b>New Repository Secret</b> again</li>
+                <li>For the <em>Name</em> enter <b>DJANGO_SSH_KEY</b></li>
+                <li>For the <em>Value</em> enter the <em>contents</em> of your instance's SSH key</li>
+                <li>Click <b>Add secret</b></li>
+            </ol>
+
+            <p>Once the secrets have been configured, create the <b>/.github/workflows/</b> directory in your repository, and place the file <b>ansible-deploy.yml</b> inside it. You must also place copies of the following files from the previous steps in the root of your repository.</p>
+            <ul>
+                <li>deployproject.yml</li>
+                <li>variables.yml</li>
+                <li>github_inventory</li>
+            </ul>
+
+            <p>With this configuration in place, any new code committed to the main branch of the repository will be automatically deployed to the instance specified in the <b>DJANGO_DOMAIN</b> secret.</p> Contributors do not need to have Ansible installed locally.
+
+            <h2>Wrap Up and Notes</h2>
+            <p>With all of the components set up, these scripts form a pipeline that allows developers to see their code go from their desktop IDE to running live on a web server every time they push new code to the main branch of the project repository. In addition, a developer could use it to create a development instance that is separate from the production server. This could be used to test new features or resolve bugs with no risk the live web site.</p>
+
+            <p>This Continuous Development Pipeline is under active development and has a few known issues:</p>
+            <ul>
+                <li>The django superuser password is not set</li>
+                <p>You will be unable to log into the Django admin panel immediately after installation, as no password is set. You can set one by connecting to the instance via SSH with the dev user and setting it manually with the following commands:</p>
+                <pre># cd /projects/<b>project name</b>_dir
+# source <b>project name</b>_env/bin/activate
+# ./manage.py changepassword <b>Django superuser password</b></pre>
+            </ul>
+        </main>
+    </div>
+</body>
+</html>

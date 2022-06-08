@@ -1,0 +1,3 @@
+---
+- import_playbook: djangoserver.yml
+- import_playbook: deployproject.yml

@@ -1,0 +1,8 @@
+DOMAIN_NAME: # The domain name or IP address
+ADMIN_USER: # User for web dev and admin
+ADMIN_PASSWORD: # Password for the database and ftp login
+PROJECT_NAME: # Name of the project
+SUPERUSER_EMAIL: # Email for Django superuser
+DJANGO_SECRET_KEY: # Must be 50 characters, can be copied from local install
+DEPLOY_LOCAL: False # The relative path to local project files to deploy or False to disable
+DEPLOY_REPO: False # URL to Git repository containing project files to deploy or False to disable
