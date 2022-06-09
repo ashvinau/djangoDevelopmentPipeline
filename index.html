@@ -40,11 +40,16 @@
 
         pre {
             background: #333852;
+            line-height:25px;
             border-style: solid;
             border-width: 1px;
             border-color: #515981;
             padding: 10px;
             margin: 20px;
+        }
+
+        li {
+            font-weight: bold;
         }
 
         b {
@@ -220,6 +225,16 @@ DEPLOY_REPO: <b>URL for Github repository</b></pre>
                 <li>Where do I get the Django SECRET_KEY?</li>
                 <p>The SECRET_KEY is generated when you run <em>django-admin startproject</em> and stored in <b>settings.py</b>. If you need to generate a new one you can use <a href="https://djecrety.ir">Djecrety</a>.</p>
 
+                <li>Django/ Python cannot find my application or files!</li>
+                <p>When Python looks at the directories in your project, it can only see directories with the file <b>__init__.py</b>. If this file is not present, Python, and as a result, Django will ignore that folder. This file does not need to have any contents. You can create this file by changing to the directory and using the following command:</p>
+
+                <pre># touch __init__.py</pre>
+
+                <li>Migrations are failing for my application(s)!</li>
+                <p>Even though it may not be part of your project files, Django expects each application folder to contain a directory called <b>MIGRATIONS</b>, and in it must be the aforementioned <b>__init__.py</b>. This folder can be empty otherwise.</p>
+
+                <li>Running the playbook has failed with a red error message!</li>
+                <p>If the playbook halts with an error message, try and note any information displayed, and check your configuration for errors. Once fixed, issue the same command to run the playbook again. The <em>idempotent</em> nature of Ansible means that commands which have already been performed will not be performed twice. If you cannot find the cause of your error and feel you have found a bug, please submit a report.
             </ul>
         </main>
     </div>
