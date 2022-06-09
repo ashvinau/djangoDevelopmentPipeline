@@ -8,6 +8,8 @@ https://docs.djangoproject.com/en/4.0/topics/settings/
 
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.0/ref/settings/
+This file has been modified from the default settings.py to reflect
+the environment in the djangoDevelopmentPipeline
 """
 
 from pathlib import Path
@@ -49,7 +51,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'djangotest.urls'
+ROOT_URLCONF = '{{ PROJECT_NAME }}.urls'
 
 TEMPLATES = [
     {
@@ -67,7 +69,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'djangotest.wsgi.application'
+WSGI_APPLICATION = '{{ PROJECT_NAME }}.wsgi.application'
 
 
 # Database
