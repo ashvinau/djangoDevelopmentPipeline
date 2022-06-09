@@ -17,8 +17,7 @@
 
         div#wrapper {
             width: 940px;
-
-            margin: 0 auto 0 auto;
+            margin: 0 auto 20px auto;
         }
 
         header {
@@ -59,7 +58,7 @@
         }
 
         h2 {
-            margin: 15px;
+            margin: 20px;
             border-left: 6px white solid;
             padding-left: 8px;
         }
@@ -204,15 +203,23 @@ DEPLOY_REPO: <b>URL for Github repository</b></pre>
             <h2>Wrap Up and Notes</h2>
             <p>With all of the components set up, these scripts form a pipeline that allows developers to see their code go from their desktop IDE to running live on a web server every time they push new code to the main branch of the project repository. In addition, a developer could use it to create a development instance that is separate from the production server. This could be used to test new features or resolve bugs with no risk the live web site.</p>
 
-            <p>This Continuous Development Pipeline is under active development and has a few known issues:</p>
+            <p>This Continuous Development Pipeline is under active development. The following are some common usage tips:</p>
             <ul>
                 <li>The django superuser password is not set</li>
                 <p>You will be unable to log into the Django admin panel immediately after installation, as no password is set. You can set one by connecting to the instance via SSH with the dev user and setting it manually with the following commands:</p>
                 <pre># cd /projects/<b>project name</b>_dir
 # source <b>project name</b>_env/bin/activate
 # ./manage.py changepassword <b>Django superuser password</b></pre></li>
+
                 <li>Updates to the instance do not remove files to reflect the state of the repository</li>
-                <p>Currently the git clone operation copies the files to a temporary directory on the instance before overwriting the project files in the project directory. The right way to do this is to initialize git on the instance and pull the changes from the repository, but this is much more complex.</p>
+                <p>Currently the git clone operation copies the files to a temporary directory on the instance before overwriting the project files in the project directory. The right way to do this is to initialize git on the instance and pull the changes from the repository, but this is much more complex. I may add an option in the future to "clear" the project directory before the copy is performed. For now file removal must be done through SSH or FTP.</p>
+
+                <li>Can I install the stack and deploy a project in one step?</li>
+                <p>This tutorial has you run the stack setup and deployment separately, but they can be performed back to back. The file <b>djangomain.yml</b> is a playlist which runs both <b>djangoserver.yml</b> and <b>deployproject.yml</b> in that order.</p>
+
+                <li>Where do I get the Django SECRET_KEY?</li>
+                <p>The SECRET_KEY is generated when you run <em>django-admin startproject</em> and stored in <b>settings.py</b>. If you need to generate a new one you can use <a href="https://djecrety.ir">Djecrety</a>.</p>
+
             </ul>
         </main>
     </div>
